@@ -19,23 +19,22 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Locate and Build Project
+    - name: Generate Missing Gradle Wrapper
       run: |
-        GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+        # Download and extract an official Gradle distribution matching your version (9.3.1)
+        wget https://gradle.org
+        unzip -q gradle-9.3.1-bin.zip
         
-        if [ -z "$GRADLEW_PATH" ]; then
-          echo "ERROR: Could not find 'gradlew' file in the repository."
-          exit 1
-        fi
+        # Use the downloaded distribution to generate the missing gradlew scripts locally
+        ./gradle-9.3.1/bin/gradle wrapper
         
-        PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-        echo "Found gradlew in: $PROJECT_DIR"
-        
-        cd "$PROJECT_DIR"
+        # Clean up the unzipped setup package
+        rm -rf gradle-9.3.1-bin.zip gradle-9.3.1
+        echo "Successfully generated gradlew executable!"
+
+    - name: Build Debug APK
+      run: |
         chmod +x gradlew
-        
-        # Added --no-daemon to prevent the infinite background loop
-        # Added --stacktrace to reveal immediate errors if the code is broken
         ./gradlew assembleDebug --no-daemon --stacktrace
 
     - name: Upload APK Artifact
