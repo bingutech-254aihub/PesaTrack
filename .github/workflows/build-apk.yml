@@ -19,23 +19,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Generate Missing Gradle Wrapper
-      run: |
-        # Download and extract an official Gradle distribution matching your version (9.3.1)
-        wget https://gradle.org
-        unzip -q gradle-9.3.1-bin.zip
-        
-        # Use the downloaded distribution to generate the missing gradlew scripts locally
-        ./gradle-9.3.1/bin/gradle wrapper
-        
-        # Clean up the unzipped setup package
-        rm -rf gradle-9.3.1-bin.zip gradle-9.3.1
-        echo "Successfully generated gradlew executable!"
+    # Automatically provisions Gradle 9.3.1 and handles missing gradlew scripts
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '9.3.1'
 
     - name: Build Debug APK
-      run: |
-        chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon --stacktrace
+      run: gradle assembleDebug --no-daemon --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
