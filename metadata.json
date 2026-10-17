@@ -1,0 +1,6 @@
+{
+  "name": "PesaTrack",
+  "description": "Real-time daily expense and monthly budget tracker with Kenya Shillings (KES) income allocation and category limits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

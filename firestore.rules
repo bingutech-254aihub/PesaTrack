@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(val) {
+      return val is timestamp && val <= request.time;
+    }
+
+    function isValidCategory(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.monthlyBudget is number && data.monthlyBudget >= 0 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 50)) &&
+             (!('colorHex' in data) || (data.colorHex is string && data.colorHex.size() <= 16)) &&
+             (!('isArchived' in data) || data.isArchived is bool);
+    }
+
+    function isValidIncomeSource(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.expectedAmount is number && data.expectedAmount >= 0 &&
+             (!('receivedAmount' in data) || (data.receivedAmount is number && data.receivedAmount >= 0)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidIncome(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.sourceName is string && data.sourceName.size() > 0 && data.sourceName.size() <= 100 &&
+             data.amount is number && data.amount > 0 &&
+             data.date is string && data.date.size() >= 8 && data.date.size() <= 20 &&
+             (!('incomeSourceId' in data) || (data.incomeSourceId is string && data.incomeSourceId.size() <= 128)) &&
+             (!('timestamp' in data) || data.timestamp is int) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidExpense(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.categoryId is string && data.categoryId.size() <= 128 &&
+             data.categoryName is string && data.categoryName.size() > 0 && data.categoryName.size() <= 100 &&
+             data.amount is number && data.amount > 0 &&
+             data.date is string && data.date.size() >= 8 && data.date.size() <= 20 &&
+             (!('fromIncomeSourceId' in data) || (data.fromIncomeSourceId is string && data.fromIncomeSourceId.size() <= 128)) &&
+             (!('fromIncomeSourceName' in data) || (data.fromIncomeSourceName is string && data.fromIncomeSourceName.size() <= 100)) &&
+             (!('timestamp' in data) || data.timestamp is int) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidDailySummary(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.date is string && data.date.size() >= 8 && data.date.size() <= 20 &&
+             data.totalSpentToday is number && data.totalSpentToday >= 0 &&
+             data.allocatedDailyBudget is number &&
+             data.remainingDayBalance is number &&
+             data.status in ['matched', 'unmatched'] &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.currency is string && data.currency.size() <= 10 &&
+             (!('defaultMonthlyIncome' in data) || (data.defaultMonthlyIncome is number && data.defaultMonthlyIncome >= 0));
+    }
+
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+
+      match /categories/{categoryId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'name', 'monthlyBudget', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'monthlyBudget', 'notes', 'icon', 'colorHex', 'isArchived', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidCategory(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidCategory(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'monthlyBudget', 'notes', 'icon', 'colorHex', 'isArchived', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /income_sources/{incomeSourceId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'name', 'expectedAmount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'expectedAmount', 'receivedAmount', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidIncomeSource(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidIncomeSource(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'expectedAmount', 'receivedAmount', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /incomes/{incomeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'sourceName', 'amount', 'date', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'sourceName', 'amount', 'date', 'incomeSourceId', 'timestamp', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidIncome(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidIncome(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sourceName', 'amount', 'date', 'incomeSourceId', 'timestamp', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /expenses/{expenseId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'categoryId', 'categoryName', 'amount', 'date', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'categoryId', 'categoryName', 'amount', 'fromIncomeSourceId', 'fromIncomeSourceName', 'date', 'timestamp', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidExpense(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidExpense(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['categoryId', 'categoryName', 'amount', 'fromIncomeSourceId', 'fromIncomeSourceName', 'date', 'timestamp', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /daily_summaries/{dateStr} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'date', 'totalSpentToday', 'allocatedDailyBudget', 'remainingDayBalance', 'status', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'date', 'totalSpentToday', 'allocatedDailyBudget', 'remainingDayBalance', 'status', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidDailySummary(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidDailySummary(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['totalSpentToday', 'allocatedDailyBudget', 'remainingDayBalance', 'status', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /profile/{profileId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'currency', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'currency', 'defaultMonthlyIncome', 'createdAt', 'updatedAt']) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidUserProfile(incoming());
+        allow update: if isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidUserProfile(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['currency', 'defaultMonthlyIncome', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

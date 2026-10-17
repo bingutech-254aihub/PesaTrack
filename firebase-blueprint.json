@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "An expense category with monthly budget limits and notes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who owns this category" },
+        "name": { "type": "string", "description": "Category display name" },
+        "monthlyBudget": { "type": "number", "description": "Expected monthly budget limit in KES" },
+        "notes": { "type": "string", "description": "Budget calculation breakdown or context notes" },
+        "icon": { "type": "string", "description": "Material symbol icon name" },
+        "colorHex": { "type": "string", "description": "Hex color string for badges" },
+        "isArchived": { "type": "boolean", "description": "Whether the category is archived" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp via serverTimestamp" }
+      },
+      "required": ["userId", "name", "monthlyBudget", "createdAt", "updatedAt"]
+    },
+    "IncomeSource": {
+      "title": "IncomeSource",
+      "description": "A fixed or variable earning stream.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "name": { "type": "string", "description": "Income stream name" },
+        "expectedAmount": { "type": "number", "description": "Expected earning amount in KES" },
+        "receivedAmount": { "type": "number", "description": "Actual cumulative received amount" },
+        "notes": { "type": "string", "description": "Stream notes" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["userId", "name", "expectedAmount", "createdAt", "updatedAt"]
+    },
+    "Income": {
+      "title": "Income",
+      "description": "An individual income deposit or inflow recorded as it arrives.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "incomeSourceId": { "type": "string", "description": "Referenced income source id" },
+        "sourceName": { "type": "string", "description": "Income stream display name" },
+        "amount": { "type": "number", "description": "Amount received in KES" },
+        "date": { "type": "string", "description": "YYYY-MM-DD date string" },
+        "timestamp": { "type": "integer", "description": "Epoch timestamp in milliseconds" },
+        "notes": { "type": "string", "description": "Deposit notes or reference" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["userId", "sourceName", "amount", "date", "createdAt", "updatedAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "An expense transaction tracked to the cent in real time.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "categoryId": { "type": "string", "description": "Category document ID" },
+        "categoryName": { "type": "string", "description": "Category name for snapshot query efficiency" },
+        "amount": { "type": "number", "description": "Amount spent in KES" },
+        "fromIncomeSourceId": { "type": "string", "description": "Income pool or account used" },
+        "fromIncomeSourceName": { "type": "string", "description": "Name of income pool taken from" },
+        "date": { "type": "string", "description": "YYYY-MM-DD format" },
+        "timestamp": { "type": "integer", "description": "Epoch milliseconds" },
+        "notes": { "type": "string", "description": "Description or item notes" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["userId", "categoryId", "categoryName", "amount", "date", "createdAt", "updatedAt"]
+    },
+    "DailySummary": {
+      "title": "DailySummary",
+      "description": "Daily reconciliation of spent amounts versus allocated daily budget.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "date": { "type": "string", "description": "YYYY-MM-DD date identifier" },
+        "totalSpentToday": { "type": "number", "description": "Total spent on this day in KES" },
+        "allocatedDailyBudget": { "type": "number", "description": "Daily budget allowance" },
+        "remainingDayBalance": { "type": "number", "description": "Unused daily balance" },
+        "status": { "type": "string", "enum": ["matched", "unmatched"], "description": "Reconciliation status" },
+        "notes": { "type": "string", "description": "Daily audit notes" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["userId", "date", "totalSpentToday", "allocatedDailyBudget", "remainingDayBalance", "status", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User settings and default budget parameters.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "currency": { "type": "string", "description": "Currency symbol, defaults to KES" },
+        "defaultMonthlyIncome": { "type": "number", "description": "Total expected monthly income" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["userId", "currency", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "User specific expense categories with budget limits"
+    },
+    "/users/{userId}/income_sources/{incomeSourceId}": {
+      "schema": { "$ref": "#/entities/IncomeSource" },
+      "description": "User earning streams"
+    },
+    "/users/{userId}/incomes/{incomeId}": {
+      "schema": { "$ref": "#/entities/Income" },
+      "description": "Recorded income receipts"
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Recorded expense items"
+    },
+    "/users/{userId}/daily_summaries/{dateStr}": {
+      "schema": { "$ref": "#/entities/DailySummary" },
+      "description": "Daily end-of-day balances and reconciliation"
+    },
+    "/users/{userId}/profile/{profileId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile and budget preferences"
+    }
+  }
+}
