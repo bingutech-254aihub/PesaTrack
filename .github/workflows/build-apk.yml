@@ -19,12 +19,29 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Generates a standard mock Android debug keystore file to satisfy the build settings
     - name: Generate Mock Debug Keystore
       run: |
         keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         echo "Successfully provisioned temporary debug key wrapper!"
 
+    # Injects the missing string resource that AuthScreen.kt is looking for
+    - name: Inject Missing Firebase Resource Strings
+      run: |
+        STRINGS_FILE="app/src/main/res/values/strings.xml"
+        
+        # Ensure the directories exist just in case
+        mkdir -p app/src/main/res/values
+        
+        # If strings.xml doesn't exist, create a baseline; otherwise, insert the missing web client ID
+        if [ ! -f "$STRINGS_FILE" ]; then
+          echo '<resources><string name="app_name">PesaTrack</string><string name="default_web_client_id">mock_client_id_placeholder</string></resources>' > "$STRINGS_FILE"
+        else
+          # Insert the placeholder key right before the closing </resources> tag
+          sed -i 's|</resources>|<string name="default_web_client_id">mock_client_id_placeholder</string></resources>|' "$STRINGS_FILE"
+        fi
+        echo "Successfully injected placeholder default_web_client_id string asset."
+
+    # Uses the official configuration setup
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
